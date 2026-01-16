@@ -1,104 +1,135 @@
 import { common, Want } from '@kit.AbilityKit';
-import power from '@ohos.power'
+import { BusinessError } from '@kit.BasicServicesKit';
+import { AppModel, AppInfo } from '../model/AppModel';
+
 @Entry
 @Component
 struct Index {
-  // 模拟的桌面应用数据（稍后我们替换为真实的系统应用列表）
-  @State appList: Array<string> = ['相机', '相册', '设置', '文件管理', '浏览器', '计算器'];
-  // 模拟的Dock栏数据
+  @State appList: Array<AppInfo> = [];
   @State dockList: Array<string> = ['智慧语音', '搜索', '多屏协同'];
 
+  aboutToAppear() {
+    this.initData();
+  }
+
+  async initData() {
+    console.info('Launcher: 开始获取应用列表...');
+    try {
+      // 1. 尝试获取真实数据
+      let list = await AppModel.getAppList();
+
+      // 2. 【关键逻辑】如果是预览器（list为空），则加载模拟数据让界面好看点
+      if (list.length === 0) {
+        console.warn('Launcher: 未获取到真实数据(可能是预览器环境)，加载模拟数据...');
+        this.appList = this.getMockData();
+      } else {
+        console.info(`Launcher: 获取成功，共找到 ${list.length} 个应用`);
+        this.appList = list;
+      }
+    } catch (err) {
+      // 出错了也加载模拟数据
+      this.appList = this.getMockData();
+    }
+  }
+
+  // 【新增】模拟数据生成器，只为了预览好看
+  getMockData(): Array<AppInfo> {
+    let mock: Array<AppInfo> = [];
+    for (let i = 0; i < 12; i++) {
+      mock.push({
+        name: `测试应用 ${i + 1}`,
+        bundleName: `com.test.app${i}`,
+        abilityName: 'MainAbility',
+        icon: $r('app.media.startIcon') // 确保你有这个图标
+      });
+    }
+    return mock;
+  }
+
+  launchApp(bundleName: string, abilityName: string) {
+    // 预览器里点击会报错，这是正常的，真机上不会
+    let context = getContext(this) as common.UIAbilityContext;
+    let want: Want = { bundleName: bundleName, abilityName: abilityName };
+    context.startAbility(want).catch((err: BusinessError) => {
+      console.error(`Launcher: 启动失败 ${err.code}`);
+    });
+  }
+
   build() {
-    // 根容器，层叠布局，模拟桌面壁纸和上层元素
     Stack() {
-      // 1. 桌面壁纸
-      Image($r('app.media.background')) // 暂时用图标代替，你可以换成一张好看的风景图
+      // 壁纸
+      Image($r('app.media.background'))
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
-        .opacity(0.1) // 调淡一点，像壁纸
+        .opacity(1.0)
 
-      // 2. 桌面主体内容
       Column() {
-        // --- 上半部分：桌面图标区域 (Grid) ---
+        // 图标区域
         Grid() {
-          ForEach(this.appList, (item: string) => {
+          ForEach(this.appList, (item: AppInfo) => {
             GridItem() {
-              Column({ space: 10 }) {
-                // 图标
-                Image($r('app.media.startIcon'))
-                  .width(60)
-                  .height(60)
+              Column({ space: 8 }) {
+                Image(item.icon)
+                  .width(55)
+                  .height(55)
                   .borderRadius(10)
-                // 文字
-                Text(item)
-                  .fontSize(14)
+                  .alt($r('app.media.startIcon')) // 图标加载失败时的占位图
+
+                Text(item.name)
+                  .fontSize(12)
                   .fontColor(Color.White)
-                  .fontWeight(FontWeight.Medium)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .textAlign(TextAlign.Center)
+                  .width('100%')
+                  .shadow({ radius: 5, color: Color.Black, offsetY: 1 })
               }
-              .width(100)
-              .height(100)
+              .width(90)
+              .height(90)
               .justifyContent(FlexAlign.Center)
               .onClick(() => {
-                // 点击图标的逻辑，稍后实现启动应用
-                console.info('Clicked: ' + item);
+                this.launchApp(item.bundleName, item.abilityName);
               })
             }
           })
         }
-        .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr') // 设为6列，模拟PC宽屏布局
-        .rowsGap(20)
-        .columnsGap(20)
-        .width('90%')
-        .height('85%') // 占据大部分屏幕
-        .margin({ top: 20 })
+        .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr')
+        .rowsGap(15)
+        .columnsGap(15)
+        .width('95%')
+        .height('85%')
+        .margin({ top: 30 })
 
-        // --- 下半部分：PC风格 Dock 栏 / 任务栏 ---
+        // 底部任务栏
         Row() {
-          // 左侧：开始菜单按钮
-          Image($r('app.media.startIcon')) // 以后换成 Win/鸿蒙 logo
-            .width(40)
-            .height(40)
-            .margin({ left: 20, right: 20 })
-            .onClick(() => {
-              // 弹出开始菜单逻辑
-            })
-
-          // 中间：常用应用 Dock
-          List({ space: 15 }) {
+          Image($r('app.media.startIcon'))
+            .width(36).height(36).margin({ left: 15, right: 15 })
+          Divider().vertical(true).height(20).color('rgba(255,255,255,0.4)').margin({ right: 10 })
+          List({ space: 10 }) {
             ForEach(this.dockList, (item: string) => {
               ListItem() {
                 Column() {
                   Image($r('app.media.startIcon'))
-                    .width(45)
-                    .height(45)
-                    .borderRadius(8)
-                    .backgroundColor('rgba(255,255,255,0.2)') // 半透明背景
+                    .width(40).height(40).borderRadius(8).backgroundColor('rgba(255,255,255,0.15)')
                 }
-                .padding(5)
+                .padding(4)
               }
             })
           }
-          .listDirection(Axis.Horizontal)
-          .height('100%')
-          .layoutWeight(1) // 占满中间空间
-
-          // 右侧：状态栏（时间、WiFi等）
+          .listDirection(Axis.Horizontal).height('100%').layoutWeight(1)
           Row({ space: 10 }) {
-            Text('14:30')
-              .fontColor(Color.White)
-            Text('2026/01/16')
-              .fontColor(Color.White)
+            Text('100%').fontColor(Color.White).fontSize(12)
+            Text('16:20').fontColor(Color.White).fontSize(12)
           }
           .margin({ right: 20 })
         }
         .width('100%')
-        .height('10%') // 底部 Dock 高度
-        .backgroundColor('rgba(0,0,0,0.6)') // 毛玻璃黑色背景
+        .height(56)
+        .backgroundColor('rgba(20, 20, 20, 0.85)')
+        .backdropBlur(20)
         .alignItems(VerticalAlign.Center)
       }
-      .width('100%')
-      .height('100%')
     }
     .width('100%')
     .height('100%')
