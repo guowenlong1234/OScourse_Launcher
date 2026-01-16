@@ -1,5 +1,5 @@
 import { common, Want } from '@kit.AbilityKit';
-
+import power from '@ohos.power'
 @Entry
 @Component
 struct Index {
