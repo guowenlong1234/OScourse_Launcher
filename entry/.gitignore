@@ -1,0 +1,17 @@
+# 编译产物与缓存
+.hvigor/
+.idea/
+build/
+oh_modules/
+.cxx/
+local.properties
+
+oh-package-lock.json5
+
+# 编辑器配置
+.vscode/
+*.iml
+
+# OS生成文件
+.DS_Store
+Thumbs.db
